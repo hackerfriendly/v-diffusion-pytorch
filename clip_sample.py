@@ -3,6 +3,8 @@
 """CLIP guided sampling from a diffusion model."""
 
 import argparse
+import random
+import json
 from functools import partial
 from pathlib import Path
 
@@ -19,6 +21,33 @@ from diffusion import get_model, get_models, sampling, utils
 
 MODULE_DIR = Path(__file__).resolve().parent
 
+styles = [
+    "Pencil sketch",
+    "Charcoal sketch",
+    "DeviantArt",
+    "CryEngine",
+    "National Geographic photo",
+    "chalk art",
+    "Pixar film",
+    "Studio Ghibli",
+    "Hyperrealism",
+    "Psychedelic",
+    "Cyberpunk",
+    "Low poly",
+    "Tilt shift",
+    "Storybook illustration",
+    "Ultrafine detail",
+    "Child's drawing",
+    "Stipple",
+    "Bokeh",
+    "Ink drawing",
+    "#film",
+    "Albrecht Dürer",
+    "Gustave Dore",
+    "Pablo Picasso",
+    "Feng Zhu",
+    "Lisa Frank"
+]
 
 class MakeCutouts(nn.Module):
     def __init__(self, cut_size, cutn, cut_pow=1.):
@@ -99,6 +128,10 @@ def main():
                    help='the timestep to start at (used with init images)')
     p.add_argument('--steps', type=int, default=1000,
                    help='the number of timesteps')
+    p.add_argument("--out", type=str, default="out.jpg",
+                    help="Output filename")
+    p.add_argument("--style", type=str, default='random',
+                    help='Optional style. Can be anything. Default: random style.')
     args = p.parse_args()
 
     if args.device:
@@ -106,6 +139,15 @@ def main():
     else:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('Using device:', device)
+
+    print("prompts:", args.prompts)
+
+    if args.style == 'random':
+        args.style = random.choice(styles)
+        print("style:", args.style)
+
+    args.prompts.append(args.style)
+    args.prompts.append("trending on ArtStation")
 
     model = get_model(args.model)()
     _, side_y, side_x = model.shape
@@ -132,10 +174,10 @@ def main():
 
     target_embeds, weights = [], []
 
-    for prompt in args.prompts:
-        txt, weight = parse_prompt(prompt)
-        target_embeds.append(clip_model.encode_text(clip.tokenize(txt).to(device)).float())
-        weights.append(weight)
+    for i, prompt in enumerate(args.prompts):
+        # txt, weight = parse_prompt(prompt)
+        target_embeds.append(clip_model.encode_text(clip.tokenize(prompt).to(device)).float())
+        weights.append(len(args.prompts) / float(i + 1))
 
     for prompt in args.images:
         path, weight = parse_prompt(prompt)
@@ -191,13 +233,34 @@ def main():
             cur_batch_size = min(n - i, batch_size)
             outs = run(x[i:i+cur_batch_size], steps, clip_embed[i:i+cur_batch_size])
             for j, out in enumerate(outs):
-                utils.to_pil_image(out).save(f'out_{i + j:05}.png')
+                utils.to_pil_image(out).save(args.out,  compression="jpeg", quality=85)
+        with open(f"{args.out}.json", "w", encoding="UTF-8") as f:
+            f.write(json.dumps(
+                {
+                    "prompts": args.prompts,
+                    "images": args.images,
+                    "batch-size": args.batch_size,
+                    "checkpoint": args.checkpoint,
+                    "clip-guidance-scale": args.clip_guidance_scale,
+                    "cutn": args.cutn,
+                    "cut-pow": args.cut_pow,
+                    "eta": args.eta,
+                    "init": args.init,
+                    "model": args.model,
+                    "n": args.n,
+                    "seed": args.seed,
+                    "size": args.size,
+                    "starting-timestep": args.starting_timestep,
+                    "steps": args.steps,
+                    "out": args.out,
+                    "style": args.style
+                }
+            ))
 
     try:
         run_all(args.n, args.batch_size)
     except KeyboardInterrupt:
         pass
-
 
 if __name__ == '__main__':
     main()
