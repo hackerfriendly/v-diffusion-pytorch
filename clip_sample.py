@@ -234,7 +234,7 @@ def main():
             outs = run(x[i:i+cur_batch_size], steps, clip_embed[i:i+cur_batch_size])
             for j, out in enumerate(outs):
                 utils.to_pil_image(out).save(args.out,  compression="jpeg", quality=85)
-        with open(f"{args.out}.json", "w", encoding="UTF-8") as f:
+        with open(f"{args.out.rstrip('.jpg')}.json", "w", encoding="UTF-8") as f:
             f.write(json.dumps(
                 {
                     "prompts": args.prompts,
