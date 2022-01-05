@@ -253,7 +253,8 @@ def main():
                     "starting-timestep": args.starting_timestep,
                     "steps": args.steps,
                     "out": args.out,
-                    "style": args.style
+                    "style": args.style,
+                    "engine": "v-diffusion-pytorch"
                 }
             ))
 
