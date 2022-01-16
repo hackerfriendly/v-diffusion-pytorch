@@ -18,36 +18,9 @@ from tqdm import trange
 
 from CLIP import clip
 from diffusion import get_model, get_models, sampling, utils
+from art_styles import styles
 
 MODULE_DIR = Path(__file__).resolve().parent
-
-styles = [
-    "Pencil sketch",
-    "Charcoal sketch",
-    "DeviantArt",
-    "CryEngine",
-    "National Geographic photo",
-    "chalk art",
-    "Pixar film",
-    "Studio Ghibli",
-    "Hyperrealism",
-    "Psychedelic",
-    "Cyberpunk",
-    "Low poly",
-    "Tilt shift",
-    "Storybook illustration",
-    "Ultrafine detail",
-    "Child's drawing",
-    "Stipple",
-    "Bokeh",
-    "Ink drawing",
-    "#film",
-    "Albrecht Dürer",
-    "Gustave Dore",
-    "Pablo Picasso",
-    "Feng Zhu",
-    "Lisa Frank"
-]
 
 class MakeCutouts(nn.Module):
     def __init__(self, cut_size, cutn, cut_pow=1.):
@@ -130,8 +103,8 @@ def main():
                    help='the number of timesteps')
     p.add_argument("--out", type=str, default="out.jpg",
                     help="Output filename")
-    p.add_argument("--style", type=str, default='random',
-                    help='Optional style. Can be anything. Default: random style.')
+    p.add_argument("--style", type=str, default=None,
+                    help='Optional style. Can be anything. Default: No style. Set to "random" for a random style.')
     args = p.parse_args()
 
     if args.device:
@@ -141,13 +114,6 @@ def main():
     print('Using device:', device)
 
     print("prompts:", args.prompts)
-
-    if args.style == 'random':
-        args.style = random.choice(styles)
-        print("style:", args.style)
-
-    args.prompts.append(args.style)
-    args.prompts.append("trending on ArtStation")
 
     model = get_model(args.model)()
     _, side_y, side_x = model.shape
@@ -177,7 +143,16 @@ def main():
     for i, prompt in enumerate(args.prompts):
         # txt, weight = parse_prompt(prompt)
         target_embeds.append(clip_model.encode_text(clip.tokenize(prompt).to(device)).float())
-        weights.append(len(args.prompts) / float(i + 1))
+        weights.append(3.0)
+
+    if args.style == "random":
+        args.style = random.choice(styles)
+        print("style:", args.style)
+
+    if args.style:
+        for style in [args.style]:
+            target_embeds.append(clip_model.encode_text(clip.tokenize(style).to(device)).float())
+            weights.append(1.0)
 
     for prompt in args.images:
         path, weight = parse_prompt(prompt)

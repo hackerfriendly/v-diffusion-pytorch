@@ -3,6 +3,8 @@
 """Classifier-free guidance sampling from a diffusion model."""
 
 import argparse
+import json
+import random
 from functools import partial
 from pathlib import Path
 
@@ -16,9 +18,9 @@ from tqdm import trange
 
 from CLIP import clip
 from diffusion import get_model, get_models, sampling, utils
+from art_styles import styles
 
 MODULE_DIR = Path(__file__).resolve().parent
-
 
 def parse_prompt(prompt, default_weight=3.):
     if prompt.startswith('http://') or prompt.startswith('https://'):
@@ -65,6 +67,10 @@ def main():
                    help='the timestep to start at (used with init images)')
     p.add_argument('--steps', type=int, default=500,
                    help='the number of timesteps')
+    p.add_argument("--out", type=str, default="out.jpg",
+                    help="Output filename")
+    p.add_argument("--style", type=str, default=None,
+                    help='Optional style. Can be anything. Default: No style. Set to "random" for a random style.')
     args = p.parse_args()
 
     if args.device:
@@ -72,6 +78,8 @@ def main():
     else:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('Using device:', device)
+
+    print("prompts:", args.prompts)
 
     model = get_model(args.model)()
     _, side_y, side_x = model.shape
@@ -98,10 +106,19 @@ def main():
     zero_embed = torch.zeros([1, clip_model.visual.output_dim], device=device)
     target_embeds, weights = [zero_embed], []
 
-    for prompt in args.prompts:
-        txt, weight = parse_prompt(prompt)
-        target_embeds.append(clip_model.encode_text(clip.tokenize(txt).to(device)).float())
-        weights.append(weight)
+    for i, prompt in enumerate(args.prompts):
+        # txt, weight = parse_prompt(prompt)
+        target_embeds.append(clip_model.encode_text(clip.tokenize(prompt).to(device)).float())
+        weights.append(3.0)
+
+    if args.style == "random":
+        args.style = random.choice(styles)
+        print("style:", args.style)
+
+    if args.style:
+        for style in [args.style]:
+            target_embeds.append(clip_model.encode_text(clip.tokenize(style).to(device)).float())
+            weights.append(1.0)
 
     for prompt in args.images:
         path, weight = parse_prompt(prompt)
@@ -142,7 +159,27 @@ def main():
             cur_batch_size = min(n - i, batch_size)
             outs = run(x[i:i+cur_batch_size], steps)
             for j, out in enumerate(outs):
-                utils.to_pil_image(out).save(f'out_{i + j:05}.png')
+                utils.to_pil_image(out).save(args.out,  compression="jpeg", quality=85)
+        with open(f"{args.out.rstrip('.jpg')}.json", "w", encoding="UTF-8") as f:
+            f.write(json.dumps(
+                {
+                    "prompts": args.prompts,
+                    "images": args.images,
+                    "batch-size": args.batch_size,
+                    "checkpoint": args.checkpoint,
+                    "eta": args.eta,
+                    "init": args.init,
+                    "model": args.model,
+                    "n": args.n,
+                    "seed": args.seed,
+                    "size": args.size,
+                    "starting-timestep": args.starting_timestep,
+                    "steps": args.steps,
+                    "out": args.out,
+                    "style": args.style,
+                    "engine": "v-diffusion-pytorch"
+                }
+            ))
 
     try:
         run_all(args.n, args.batch_size)
