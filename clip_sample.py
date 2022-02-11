@@ -136,7 +136,7 @@ def main():
     if args.init:
         init = Image.open(utils.fetch(args.init)).convert('RGB')
         init = resize_and_center_crop(init, (side_x, side_y))
-        init = utils.from_pil_image(init).cuda()[None].repeat([args.n, 1, 1, 1])
+        init = utils.from_pil_image(init).to(device)[None].repeat([args.n, 1, 1, 1])
 
     target_embeds, weights = [], []
 
@@ -197,7 +197,7 @@ def main():
         return sampling.cond_sample(model, x, steps, args.eta, extra_args, cond_fn_)
 
     def run_all(n, batch_size):
-        x = torch.randn([args.n, 3, side_y, side_x], device=device)
+        x = torch.randn([n, 3, side_y, side_x], device=device)
         t = torch.linspace(1, 0, args.steps + 1, device=device)[:-1]
         steps = utils.get_spliced_ddpm_cosine_schedule(t)
         if args.init:
