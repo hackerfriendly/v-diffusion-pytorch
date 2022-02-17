@@ -9,7 +9,6 @@ styles = [
     "psychedelic",
     "cyberpunk",
     "synthwave",
-    "low poly",
     "drone view",
     "ultrafine detail",
     "chalk art",
