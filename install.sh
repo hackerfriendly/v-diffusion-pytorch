@@ -19,6 +19,6 @@ cd checkpoints
 # Sadly this bucket doesn't seem to support -C http continuation.
 for ckpt in cc12m_1.pth yfcc_1.pth yfcc_2.pth; do
   if [ ! -f $ckpt ]; then
-    curl -L "https://v-diffusion.s3.us-west-2.amazonaws.com/${chkpt}"
+    curl -L "https://v-diffusion.s3.us-west-2.amazonaws.com/${chkpt}" --output ${chkpt}
   fi
 done
