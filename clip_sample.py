@@ -156,10 +156,10 @@ def main():
 
     target_embeds, weights = [], []
 
-    for i, prompt in enumerate(args.prompts):
-        # txt, weight = parse_prompt(prompt)
-        target_embeds.append(clip_model.encode_text(clip.tokenize(prompt).to(device)).float())
-        weights.append(3.0)
+    for prompt in args.prompts:
+        txt, weight = parse_prompt(prompt)
+        target_embeds.append(clip_model.encode_text(clip.tokenize(txt).to(device)).float())
+        weights.append(weight)
 
     if args.style == "random":
         args.style = random.choice(styles)
